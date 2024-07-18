@@ -1,24 +1,16 @@
-/* eslint-disable function-paren-newline */
-/* eslint-disable implicit-arrow-linebreak */
-/* eslint-disable no-confusing-arrow */
-import React from 'react';
+import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Footer from './components/footer';
 import NewTaskForm from './components/newTaskForm';
 import TaskList from './components/taskList';
 import './components-style/app.css';
 
-export default class App extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      data: [],
-      filter: 'all',
-      remainingTime: 0,
-    };
-  }
+function App() {
+  const [data, setData] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
-  addItem = (title, min, sec) => {
+  const addItem = (title, min, sec) => {
     const newItem = {
       title,
       min,
@@ -29,50 +21,27 @@ export default class App extends React.Component {
       id: uuidv4(),
       timerInterval: null,
     };
-    this.setState(({ data }) => {
-      const newArr = [...data, newItem];
-      return {
-        data: newArr,
-      };
-    });
+    setData((prevData) => [...prevData, newItem]);
   };
 
-  editTaskTitle = (taskId, newTitle) => {
-    this.setState(({ data }) => ({
-      data: data.map((task) => (task.id === taskId ? { ...task, title: newTitle } : task)),
-    }));
+  const editTaskTitle = (taskId, newTitle) => {
+    setData((prevData) => prevData.map((elem) => (elem.id === taskId ? { ...elem, title: newTitle } : elem)));
   };
 
-  deleteItem = (id) => {
-    this.setState(({ data }) => {
-      return {
-        data: data.filter((elem) => elem.id !== id),
-      };
-    });
+  const deleteItem = (id) => {
+    setData((prevData) => prevData.filter((elem) => elem.id !== id));
   };
 
-  onCompleted = (id) => {
-    this.setState(({ data }) => ({
-      data: data.map((elem) => {
-        if (elem.id === id) {
-          return {
-            ...elem,
-            completed: !elem.completed,
-          };
-        }
-        return elem;
-      }),
-    }));
+  const onCompleted = (id) => {
+    setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, completed: !elem.completed } : elem)));
   };
 
-  clearList = () => {
-    this.setState(({ data }) => ({
-      data: data.filter((elem) => !elem.completed),
-    }));
+  const clearList = () => {
+    setData((prevData) => prevData.filter((elem) => !elem.completed));
   };
 
-  filterPost = (items, filter) => {
-    switch (filter) {
+  const filterPost = (items, funcFilter) => {
+    switch (funcFilter) {
       case 'done':
         return items.filter((elem) => elem.completed);
       case 'active':
@@ -84,23 +53,21 @@ export default class App extends React.Component {
     }
   };
 
-  onFilterSelect = (filter) => {
-    this.setState({ filter });
+  const onFilterSelect = (funcFilter) => {
+    setFilter(funcFilter);
   };
 
-  stopTimer = (id) => {
-    const task = this.state.data.find((elem) => elem.id === id);
+  const stopTimer = (id) => {
+    const task = data.find((elem) => elem.id === id);
     if (task.timerInterval && task.minNSec > 0) {
       clearInterval(task.timerInterval);
       task.timerInterval = null;
-      this.setState((prevState) => ({
-        data: prevState.data.map((elem) => (elem.id === id ? { ...elem, timerInterval: null } : elem)),
-      }));
+      setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, timerInterval: null } : elem)));
     }
   };
 
-  startTimer = (id) => {
-    const task = this.state.data.find((elem) => elem.id === id);
+  const startTimer = (id) => {
+    const task = data.find((elem) => elem.id === id);
 
     if (task) {
       if (task.timerInterval) {
@@ -110,59 +77,52 @@ export default class App extends React.Component {
 
       const startFromZero = task.minNSec === 0;
 
-      this.setState(
-        (prevState) => ({
-          data: prevState.data.map((elem) =>
-            elem.id === id ? { ...elem, minNSec: startFromZero ? +elem.min * 60 + +elem.sec : elem.minNSec } : elem
-          ),
-        }),
-        () => {
-          const timerInterval = setInterval(() => {
-            this.setState((prevState) => ({
-              data: prevState.data.map((elem) => {
-                if (elem.id === id && !elem.completed && elem.minNSec > 0) {
-                  return { ...elem, minNSec: elem.minNSec - 1 };
-                }
-                return elem;
-              }),
-            }));
-          }, 1000);
-
-          this.setState((prevState) => ({
-            data: prevState.data.map((elem) => (elem.id === id ? { ...elem, timerInterval } : elem)),
-          }));
-        }
+      setData((prevData) =>
+        prevData.map((elem) => {
+          if (elem.id === id) {
+            return { ...elem, minNSec: startFromZero ? +elem.min * 60 + +elem.sec : elem.minNSec };
+          }
+          return elem;
+        })
       );
+
+      const timerInterval = setInterval(() => {
+        setData((prevData) =>
+          prevData.map((elem) => {
+            if (elem.id === id && !elem.completed && elem.minNSec > 0) {
+              return { ...elem, minNSec: elem.minNSec - 1 };
+            }
+            return elem;
+          })
+        );
+      }, 1000);
+      setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, timerInterval } : elem)));
     }
   };
 
-  render() {
-    const { data, filter } = this.state;
-    const tasksCompleted = this.state.data.filter((elem) => elem.completed).length;
-    const visibleData = this.filterPost(data, filter);
-    console.log(this.state);
-    return (
-      <section className="todoapp">
-        <NewTaskForm onAdd={this.addItem} />
-        <section className="main">
-          <ul className="todo-list">
-            <TaskList
-              data={visibleData}
-              onDelete={this.deleteItem}
-              onCompleted={this.onCompleted}
-              startTimer={this.startTimer}
-              stopTimer={this.stopTimer}
-              onEditTitle={this.editTaskTitle}
-            />
-          </ul>
-        </section>
-        <Footer
-          tasksCompleted={tasksCompleted}
-          clearList={this.clearList}
-          filter={filter}
-          onFilterSelect={this.onFilterSelect}
-        />
+  const tasksCompleted = data.filter((elem) => elem.completed).length;
+  const visibleData = filterPost(data, filter);
+
+  return (
+    <section className="todoapp">
+      <NewTaskForm onAdd={addItem} />
+      <section className="main">
+        <ul className="todo-list">
+          <TaskList
+            data={visibleData}
+            onDelete={deleteItem}
+            onCompleted={onCompleted}
+            startTimer={startTimer}
+            stopTimer={stopTimer}
+            onEditTitle={editTaskTitle}
+            editingTaskId={editingTaskId}
+            setEditingTaskId={setEditingTaskId}
+          />
+        </ul>
       </section>
-    );
-  }
+      <Footer tasksCompleted={tasksCompleted} clearList={clearList} filter={filter} onFilterSelect={onFilterSelect} />
+    </section>
+  );
 }
+
+export default App;

@@ -1,125 +1,121 @@
-/* eslint-disable operator-linebreak */
-/* eslint-disable react/self-closing-comp */
 import '../components-style/task.css';
 import { formatDistanceToNow } from 'date-fns';
 import PropTypes from 'prop-types';
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-class Task extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      editing: false,
-      editedTitle: this.props.title,
-    };
-  }
+function Task({
+  title,
+  onDelete,
+  onCompleted,
+  completed,
+  timeCreated,
+  startTimer,
+  stopTimer,
+  remainingTime,
+  id,
+  onEditTitle,
+  editingTaskId,
+  setEditingTaskId,
+}) {
+  const [editedTitle, setEditedTitle] = useState(title);
+  const inputRef = useRef(null);
+  const taskTimer = formatDistanceToNow(new Date(timeCreated), { includeSeconds: true, addSuffix: true });
+  const completeClazz = completed ? 'completed' : '';
+  const remainingMinutes = Math.floor(remainingTime / 60);
+  const remainingSeconds = remainingTime % 60;
 
-  componentDidMount() {
-    document.addEventListener('keydown', this.handleKeyDown);
-  }
-
-  handleEdit = () => {
-    this.setState({ editing: true, editedTitle: this.props.title });
-  };
-
-  handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      this.handleSave();
-    } else if (e.key === 'Escape') {
-      this.handleCancelEdit();
+  useEffect(() => {
+    if (editingTaskId) {
+      inputRef.current.focus();
     }
-  };
+  }, [editingTaskId]);
 
-  handleChange = (e) => {
-    this.setState({ editedTitle: e.target.value });
-  };
+  const handleEdit = useCallback(() => {
+    setEditingTaskId(true);
+    setEditedTitle(title);
+  }, [title, setEditingTaskId]);
 
-  handleCancelEdit = () => {
-    this.setState((prevState) => ({
-      editing: false,
-      editedTitle: prevState.initialTitle,
-    }));
-  };
+  const handleChange = useCallback((e) => {
+    setEditedTitle(e.target.value);
+  }, []);
 
-  handleSave = () => {
-    const newTitle = this.state.editedTitle;
+  const handleCancelEdit = useCallback(() => {
+    setEditingTaskId(false);
+  }, [setEditingTaskId]);
 
-    if (!newTitle) {
-      this.setState((prevState) => ({
-        editing: false,
-        editedTitle: prevState.initialTitle,
-      }));
-
+  const handleSave = useCallback(() => {
+    if (!editedTitle) {
+      handleCancelEdit();
       return;
     }
 
-    this.props.onEditTitle(this.props.id, newTitle);
-    this.setState({ editing: false });
-  };
+    onEditTitle(id, editedTitle);
+    setEditingTaskId(false);
+  }, [editedTitle, id, onEditTitle, handleCancelEdit, setEditingTaskId]);
 
-  render() {
-    const { title, onDelete, onCompleted, completed, timeCreated, startTimer, stopTimer, remainingTime, id } =
-      this.props;
-    const { editing, editedTitle } = this.state;
-    const taskTimer = formatDistanceToNow(timeCreated, { includeSeconds: true, addSuffix: true });
-    const completeClazz = completed ? 'completed' : '';
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (editingTaskId) {
+        if (e.key === 'Enter') {
+          handleSave();
+        } else if (e.key === 'Escape') {
+          handleCancelEdit();
+        }
+      }
+    };
 
-    const remainingMinutes = Math.floor(remainingTime / 60);
-    const remainingSeconds = remainingTime % 60;
+    window.addEventListener('keydown', handleGlobalKeyDown);
 
-    return (
-      <>
-        {editing ? (
-          <li className={completeClazz}>
-            <div className="view">
-              <label>
-                <span className="description">
-                  <input
-                    className="new-todo"
-                    type="text"
-                    value={editedTitle}
-                    onChange={this.handleChange}
-                    onKeyDown={this.handleKeyDown}
-                  />
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [editingTaskId, handleSave, handleCancelEdit]);
+
+  return (
+    <li className={completeClazz}>
+      {editingTaskId ? (
+        <div className="view">
+          <label>
+            <span className="description">
+              <input className="new-todo" type="text" value={editedTitle} onChange={handleChange} ref={inputRef} />
+            </span>
+          </label>
+        </div>
+      ) : (
+        <div className="view">
+          <input className="toggle" type="checkbox" checked={completed} onChange={onCompleted} />
+          <label>
+            <span className="description">
+              {title}
+              <span className="btns">
+                <button
+                  type="button"
+                  aria-label="Start Timer"
+                  className="icon icon-play"
+                  onClick={() => startTimer(id)}
+                />
+                <button
+                  type="button"
+                  aria-label="Start Timer"
+                  className="icon icon-pause"
+                  onClick={() => stopTimer(id)}
+                />
+                <span className="result-timer">
+                  {remainingMinutes} min : {remainingSeconds} sec
                 </span>
-              </label>
-            </div>
-          </li>
-        ) : (
-          <li className={completeClazz}>
-            <div className="view">
-              <input className="toggle" type="checkbox" checked={completed} onChange={onCompleted} />
-              <label>
-                <span className="description">
-                  {title}
-                  <span className="btns">
-                    <button className="icon icon-play" onClick={() => startTimer(id)}></button>
-                    <button className="icon icon-pause" onClick={() => stopTimer(id)}></button>
-                    <span className="result-timer">
-                      {remainingMinutes} min : {remainingSeconds} sec
-                    </span>
-                  </span>
-                </span>
-                <span className="created">{taskTimer}</span>
-              </label>
-              <button className="icon icon-edit" onClick={this.handleEdit} />
-              <button className="icon icon-destroy" onClick={onDelete} />
-              <input type="text" className="edit" />
-            </div>
-          </li>
-        )}
-      </>
-    );
-  }
+              </span>
+            </span>
+            <span className="created">{taskTimer}</span>
+          </label>
+          <button type="button" aria-label="Start Timer" className="icon icon-edit" onClick={handleEdit} />
+          <button type="button" aria-label="Delete Timer" className="icon icon-destroy" onClick={onDelete} />
+        </div>
+      )}
+    </li>
+  );
 }
 
 export default Task;
-
-Task.defaultProps = {
-  title: 'Tilte',
-  completed: false,
-  timeCreated: new Date(),
-};
 
 Task.propTypes = {
   title: PropTypes.string.isRequired,
@@ -127,10 +123,11 @@ Task.propTypes = {
   onCompleted: PropTypes.func.isRequired,
   completed: PropTypes.bool.isRequired,
   timeCreated: PropTypes.string.isRequired,
-  // minNSec: PropTypes.number.isRequired,
   startTimer: PropTypes.func.isRequired,
   stopTimer: PropTypes.func.isRequired,
-  id: PropTypes.number.isRequired,
+  id: PropTypes.string.isRequired,
   onEditTitle: PropTypes.func.isRequired,
   remainingTime: PropTypes.number.isRequired,
+  setEditingTaskId: PropTypes.func.isRequired,
+  editingTaskId: PropTypes.bool.isRequired,
 };
