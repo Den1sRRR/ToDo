@@ -9,3 +9,44 @@ html .clear-completed:active {
 .clear-completed:hover {
   text-decoration: underline;
 }
+
+.todo-list li .icon:hover {
+  color: #af5b5e;
+}
+
+.btns {
+  position: relative;
+  display: inline-flex;
+  top: 10px;
+  left: 10px;
+  right: 50px;
+}
+
+.todo-list li .icon-pause {
+  position: relative;
+  left: 25px;
+}
+.todo-list li .icon-play {
+  position: relative;
+}
+
+.icon-pause:after {
+  content: '⏸';
+  position: relative;
+  bottom: 1px;
+
+}
+
+.icon-play:after {
+  content: '▶';
+  position: relative;
+  bottom: -4px;
+}
+
+.result-timer {
+  color: green;
+  font-size: 20px;
+  position: relative;
+  bottom: 10px;
+  left: 70px;
+}

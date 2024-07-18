@@ -1,68 +1,51 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Footer from './components/footer';
 import NewTaskForm from './components/newTaskForm';
 import TaskList from './components/taskList';
 import './components-style/app.css';
 
-export default class App extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      data: [],
-      filter: 'all',
-    };
-  }
+function App() {
+  const [data, setData] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [editingTaskId, setEditingTaskId] = useState(null);
 
-  addItem = (title) => {
+  const addItem = (title, min, sec) => {
     const newItem = {
       title,
+      min,
+      sec,
+      minNSec: +min * 60 + +sec,
       completed: false,
       timeCreated: new Date().toString(),
       id: uuidv4(),
+      timerInterval: null,
     };
-    this.setState(({ data }) => {
-      const newArr = [...data, newItem];
-      return {
-        data: newArr,
-      };
-    });
+    setData((prevData) => [...prevData, newItem]);
   };
 
-  deleteItem = (id) => {
-    this.setState(({ data }) => {
-      return {
-        data: data.filter((item) => item.id !== id),
-      };
-    });
+  const editTaskTitle = (taskId, newTitle) => {
+    setData((prevData) => prevData.map((elem) => (elem.id === taskId ? { ...elem, title: newTitle } : elem)));
   };
 
-  onCompleted = (id) => {
-    this.setState(({ data }) => ({
-      data: data.map((item) => {
-        if (item.id === id) {
-          return {
-            ...item,
-            completed: !item.completed,
-          };
-        }
-        return item;
-      }),
-    }));
+  const deleteItem = (id) => {
+    setData((prevData) => prevData.filter((elem) => elem.id !== id));
   };
 
-  clearList = () => {
-    this.setState(({ data }) => ({
-      data: data.filter((item) => !item.completed),
-    }));
+  const onCompleted = (id) => {
+    setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, completed: !elem.completed } : elem)));
   };
 
-  filterPost = (items, filter) => {
-    switch (filter) {
+  const clearList = () => {
+    setData((prevData) => prevData.filter((elem) => !elem.completed));
+  };
+
+  const filterPost = (items, funcFilter) => {
+    switch (funcFilter) {
       case 'done':
-        return items.filter((item) => item.completed);
+        return items.filter((elem) => elem.completed);
       case 'active':
-        return items.filter((item) => !item.completed);
+        return items.filter((elem) => !elem.completed);
       case 'all':
         return items;
       default:
@@ -70,30 +53,76 @@ export default class App extends React.Component {
     }
   };
 
-  onFilterSelect = (filter) => {
-    this.setState({ filter });
+  const onFilterSelect = (funcFilter) => {
+    setFilter(funcFilter);
   };
 
-  render() {
-    const { data, filter } = this.state;
-    const tasksCompleted = this.state.data.filter((item) => item.completed).length;
-    const visibleData = this.filterPost(data, filter);
+  const stopTimer = (id) => {
+    const task = data.find((elem) => elem.id === id);
+    if (task.timerInterval && task.minNSec > 0) {
+      clearInterval(task.timerInterval);
+      task.timerInterval = null;
+      setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, timerInterval: null } : elem)));
+    }
+  };
 
-    return (
-      <section className="todoapp">
-        <NewTaskForm onAdd={this.addItem} />
-        <section className="main">
-          <ul className="todo-list">
-            <TaskList data={visibleData} onDelete={this.deleteItem} onCompleted={this.onCompleted} />
-          </ul>
-        </section>
-        <Footer
-          tasksCompleted={tasksCompleted}
-          clearList={this.clearList}
-          filter={filter}
-          onFilterSelect={this.onFilterSelect}
-        />
+  const startTimer = (id) => {
+    const task = data.find((elem) => elem.id === id);
+
+    if (task) {
+      if (task.timerInterval) {
+        clearInterval(task.timerInterval);
+        task.timerInterval = null;
+      }
+
+      const startFromZero = task.minNSec === 0;
+
+      setData((prevData) =>
+        prevData.map((elem) => {
+          if (elem.id === id) {
+            return { ...elem, minNSec: startFromZero ? +elem.min * 60 + +elem.sec : elem.minNSec };
+          }
+          return elem;
+        })
+      );
+
+      const timerInterval = setInterval(() => {
+        setData((prevData) =>
+          prevData.map((elem) => {
+            if (elem.id === id && !elem.completed && elem.minNSec > 0) {
+              return { ...elem, minNSec: elem.minNSec - 1 };
+            }
+            return elem;
+          })
+        );
+      }, 1000);
+      setData((prevData) => prevData.map((elem) => (elem.id === id ? { ...elem, timerInterval } : elem)));
+    }
+  };
+
+  const tasksCompleted = data.filter((elem) => elem.completed).length;
+  const visibleData = filterPost(data, filter);
+
+  return (
+    <section className="todoapp">
+      <NewTaskForm onAdd={addItem} />
+      <section className="main">
+        <ul className="todo-list">
+          <TaskList
+            data={visibleData}
+            onDelete={deleteItem}
+            onCompleted={onCompleted}
+            startTimer={startTimer}
+            stopTimer={stopTimer}
+            onEditTitle={editTaskTitle}
+            editingTaskId={editingTaskId}
+            setEditingTaskId={setEditingTaskId}
+          />
+        </ul>
       </section>
-    );
-  }
+      <Footer tasksCompleted={tasksCompleted} clearList={clearList} filter={filter} onFilterSelect={onFilterSelect} />
+    </section>
+  );
 }
+
+export default App;
